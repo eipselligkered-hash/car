@@ -133,3 +133,17 @@ details.fold > summary small { font-weight: 400; color: var(--muted); font-size:
 .setup ol { padding-left: 20px; } .setup li { margin: 10px 0; } .setup a { color: var(--blue); font-weight: 600; }
 .field small { font-weight: 400; }
 @media (max-width: 360px) { .tk { width: 54px; font-size: 10.5px; } }
+/* ---- car jobs */
+.tabs button { font-size: 12px; }
+.c-amber { background: #fff1cc; color: #7a4f00; }
+.item.job { align-items: flex-start; padding-top: 12px; padding-bottom: 12px; }
+.item.job.s-overdue, .item.job.s-duenow { box-shadow: inset 4px 0 0 var(--crit); }
+.item.job.s-soon { box-shadow: inset 4px 0 0 #d99a00; }
+.done-btn { flex: none; width: 64px; min-height: 56px; border-radius: 14px; border: 2px solid var(--ok); background: #fff; color: var(--ok); font-size: 20px; font-weight: 700;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; align-self: center; }
+.done-btn span { font-size: 12px; } .done-btn:active { background: var(--ok); color: #fff; }
+.link.go { padding: 4px 0; min-height: 40px; align-self: flex-start; }
+.dsum { display: block; width: 100%; text-align: left; border: 0; font: inherit; color: inherit; cursor: pointer; }
+.dsum-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; } .dsum-head .link { min-height: 0; padding: 0; }
+.dsum-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--line); font-size: 14.5px; }
+.dsum-row .t { flex: 1; min-width: 0; font-weight: 600; } .dsum-row .t small { display: block; font-weight: 400; color: var(--muted); font-size: 13px; }

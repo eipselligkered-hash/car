@@ -47,3 +47,24 @@ test('date view: sorted, reminders, recommended', () => {
   assert.equal(dateView(DATES, '2027-04-01').reminders.length, 2);
   assert.deepEqual(v.rec.map((r) => r.cost), ['about €85', 'about €74']);
 });
+import { addMonths, nextDue, jobStatus, jobView } from '../src/logic.js';
+import { JOBS } from '../src/seed.js';
+test('car jobs: next due, flags, grouping', () => {
+  assert.equal(addMonths('2026-01-31', 1), '2026-02-28'); assert.equal(addMonths('2025-09-28', 6), '2026-03-28');
+  assert.equal(nextDue({ frequency: 'weekly', last_done: '2026-10-20' }), '2026-10-27');
+  assert.equal(nextDue({ frequency: 'fortnightly', last_done: '2026-10-20' }), '2026-11-03');
+  const T = '2026-10-24', st = (frequency, last_done) => jobStatus({ frequency, last_done }, T).state;
+  assert.equal(st('weekly', '2026-10-16'), 'overdue');   // due 23/10
+  assert.equal(st('weekly', '2026-10-20'), 'soon');      // due 27/10 = 3 days
+  assert.equal(st('weekly', '2026-10-21'), 'ok');        // 4 days
+  assert.equal(st('weekly', '2026-10-17'), 'soon');      // due today
+  assert.equal(st('monthly', '2026-09-30'), 'soon');     // 30/10 = 6 days
+  assert.equal(st('monthly', '2026-10-02'), 'ok');       // 02/11 = 9 days
+  assert.equal(st('6monthly', '2026-05-05'), 'soon');    // 05/11 = 12 days
+  assert.equal(st('monthly', null), 'duenow'); assert.equal(st('once', null), 'todo'); assert.equal(st('once', T), 'done');
+  const v = jobView(JOBS, T);
+  assert.equal(v.now[0].job.title, 'Check the wiper blades');   // overdue since 28/03/2026 comes first
+  assert.equal(v.now.length, 10); assert.equal(v.oneoff.length, 4); assert.equal(v.ok.length + v.soon.length, 0);
+  assert.equal(JOBS.length, 14);
+  for (const us of ['color', 'vacuum', 'windshield', 'hood', 'trunk', 'tire', 'washer fluid']) assert.ok(!JSON.stringify(JOBS).toLowerCase().includes(us), us);
+});

@@ -13,6 +13,12 @@ Live: <https://eipselligkered-hash.github.io/car/> · Repo: <https://github.com/
 * **Kit check** – for collecting the car (e.g. from the bodyshop). Goes through everything ticked *In the car*, one at a time
   (✓ It's there / ✗ Missing, ← Back) or as a list. Progress is saved, so you can stop and carry on. At the end: a summary of what's
   missing → **Finish and save** stores the date. Afterwards you can untick *In the car* for the missing items. **Reset check** starts again.
+* **Car jobs** – recurring maintenance. Each job has a frequency (one-off / weekly / every 2 weeks / monthly / every 6 months),
+  a *Last done* date and a big **✓ Done** button (records today, Undo). Next due = last done + frequency (calendar months for monthly/6-monthly).
+  Flags: **Overdue** / **Due now** (never done) in red, **Due soon** in amber (within 3 days for weekly/fortnightly, 7 for monthly, 14 for 6-monthly), **OK** in green.
+  Grouped *Needs doing* → *Due soon* → *When collecting the Tesla from Ace Autobody* (one-offs) → *All good*, most urgent first.
+  One-offs disappear once ticked (kept in the database with their date). Tap a title to edit (title, frequency, last done, note) or delete; **+ Add job**.
+  "Run the kit check" and "Jet wash" have shortcuts to the Kit check / Wash tabs. At the top: a read-only *Key dates* summary from the Dates tab (tap → Dates).
 * **Dates** – upcoming dates sorted by date with "in N days", reminder dates (⏰; a yellow banner shows once a reminder date arrives),
   and **Recommended by Tesla app** (wiper blades ~€85, tyre rotation ~€74). Tap the circle to mark done (dated today, Undo);
   tap the title to edit any field (date, wording like "January 2027", reminder, cost, note, done date) or delete. **+ Add date**.
@@ -28,6 +34,7 @@ Dates are dd/mm/yyyy. Works offline for viewing (last data cached on the phone);
 | `car_dates` | upcoming dates (`kind = 'date'`) and Tesla app recommendations (`kind = 'recommended'`), due/remind/done dates |
 | `car_checks` | kit checks (`kind = 'kit'`, `results` per item, `missing`, `completed_on`) and finished washes (`kind = 'wash'`) |
 | `car_wash` | wash steps + ticks |
+| `car_jobs` | car jobs: title, frequency (`once`/`weekly`/`fortnightly`/`monthly`/`6monthly`), last_done, note, link_tab |
 
 Row-level security: only the signed-in owner can read/write their rows (`owner_id = auth.uid()`), `anon` has no access –
 same policies as the other apps. The page only contains the anon key; the service key is never in the app.
@@ -36,6 +43,9 @@ The starting data (`src/seed.js`, made by `scripts/make_seed.py`) is added autom
 ### One-time setup (needed once)
 The tables are created by pasting `supabase/setup.sql` into **Supabase → SQL Editor → New query → Run** (safe to run again;
 only creates `car_*` tables). The app shows a *One-time setup* screen with a **Copy setup SQL** button until this is done.
+If the database was set up before Car jobs existed, the other tabs carry on working and only the **Car jobs** tab shows
+*one quick update* with the same Copy SQL button – running the whole file again adds `car_jobs` and its starting jobs and keeps all existing data.
+(`?backend=mock&nojobs=1` simulates that.)
 
 ## Files
 | Path | What |

@@ -575,3 +575,131 @@ export const WASH = [
   "sort_order": 60
  }
 ];
+export const JOBS = [
+ {
+  "id": "422a4e7e-62ba-58bd-a6dd-978ffb7658b2",
+  "title": "Check the repair has been signed off, including the wheel alignment, rear half-shaft and CV joints",
+  "frequency": "once",
+  "last_done": null,
+  "note": "When the Tesla is collected from Ace Autobody",
+  "link_tab": null,
+  "sort_order": 10
+ },
+ {
+  "id": "f50814f5-6252-51d4-935f-264429c56383",
+  "title": "Run the kit check",
+  "frequency": "once",
+  "last_done": null,
+  "note": "When the Tesla is collected from Ace Autobody",
+  "link_tab": "check",
+  "sort_order": 20
+ },
+ {
+  "id": "47ebadc9-96f1-5428-858a-064a5bd2a666",
+  "title": "Return the Enterprise Kuga (241-D-24547)",
+  "frequency": "once",
+  "last_done": null,
+  "note": "When the Tesla is collected from Ace Autobody",
+  "link_tab": null,
+  "sort_order": 30
+ },
+ {
+  "id": "100a058b-91fe-5b00-9622-ddfa4ca6f6dc",
+  "title": "File Ace's paperwork and photos",
+  "frequency": "once",
+  "last_done": null,
+  "note": "When the Tesla is collected from Ace Autobody",
+  "link_tab": null,
+  "sort_order": 40
+ },
+ {
+  "id": "5aa475f9-85a1-564b-a721-421994a9324d",
+  "title": "Charge to 100% (LFP battery)",
+  "frequency": "weekly",
+  "last_done": null,
+  "note": null,
+  "link_tab": null,
+  "sort_order": 50
+ },
+ {
+  "id": "4695f6e1-f926-53f8-90c1-836c0122e942",
+  "title": "Check tyre pressures in the Tesla app",
+  "frequency": "weekly",
+  "last_done": null,
+  "note": null,
+  "link_tab": null,
+  "sort_order": 60
+ },
+ {
+  "id": "60edc1b2-c9a6-5677-baa1-7f26493c0a29",
+  "title": "Jet wash (roof, windows, bonnet, sides, boot, wheels)",
+  "frequency": "fortnightly",
+  "last_done": null,
+  "note": null,
+  "link_tab": "wash",
+  "sort_order": 70
+ },
+ {
+  "id": "07625db7-d65c-5591-a187-9709d98eef67",
+  "title": "Hoover dog hair and wipe the interior",
+  "frequency": "fortnightly",
+  "last_done": null,
+  "note": null,
+  "link_tab": null,
+  "sort_order": 80
+ },
+ {
+  "id": "045142e8-e5f4-5f55-8650-22652e3c01da",
+  "title": "Top up screenwash",
+  "frequency": "monthly",
+  "last_done": null,
+  "note": "Use winter-rated screenwash from October to March.",
+  "link_tab": null,
+  "sort_order": 90
+ },
+ {
+  "id": "2d9a17bd-97e9-5585-ad58-bc5a7cdd3df9",
+  "title": "Clean the window rubbers and treat them for algae",
+  "frequency": "monthly",
+  "last_done": null,
+  "note": null,
+  "link_tab": null,
+  "sort_order": 100
+ },
+ {
+  "id": "683c038c-9236-5dba-b446-d06d4adab912",
+  "title": "Check tyre tread and look for damage",
+  "frequency": "monthly",
+  "last_done": null,
+  "note": null,
+  "link_tab": null,
+  "sort_order": 110
+ },
+ {
+  "id": "a840dc4c-4183-5191-9639-7472e5d6b54f",
+  "title": "Clear leaves from the scuttle under the windscreen and from the frunk edges",
+  "frequency": "monthly",
+  "last_done": null,
+  "note": null,
+  "link_tab": null,
+  "sort_order": 120
+ },
+ {
+  "id": "175932fb-a701-55ef-8162-127410344c2c",
+  "title": "Check the wiper blades",
+  "frequency": "6monthly",
+  "last_done": "2025-09-28",
+  "note": null,
+  "link_tab": null,
+  "sort_order": 130
+ },
+ {
+  "id": "d2312a1f-a034-5dfe-95cd-00574632d690",
+  "title": "Seal or wax the paint",
+  "frequency": "6monthly",
+  "last_done": null,
+  "note": null,
+  "link_tab": null,
+  "sort_order": 140
+ }
+];

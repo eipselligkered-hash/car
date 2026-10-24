@@ -71,3 +71,45 @@ export function dateView(dates, today) {
   const rec = dates.filter((d) => d.kind === 'recommended').sort((a, b) => !!a.done_on - !!b.done_on || (a.sort_order ?? 0) - (b.sort_order ?? 0));
   return { rows, reminders: rows.filter((r) => r.remindNow), done, rec };
 }
+
+// ---- car jobs: next due = last done + frequency
+export const FREQS = [
+  { key: 'once', label: 'One-off', soon: 0 },
+  { key: 'weekly', label: 'Weekly', days: 7, soon: 3 },
+  { key: 'fortnightly', label: 'Every 2 weeks', days: 14, soon: 3 },
+  { key: 'monthly', label: 'Monthly', months: 1, soon: 7 },
+  { key: '6monthly', label: 'Every 6 months', months: 6, soon: 14 },
+];
+export const FREQ = Object.fromEntries(FREQS.map((f) => [f.key, f]));
+const iso = (d) => d.toISOString().slice(0, 10);
+export function addDays(s, n) { const d = parse(s); d.setUTCDate(d.getUTCDate() + n); return iso(d); }
+export function addMonths(s, n) {   // calendar months; 31/01 + 1 month = 28/02 (or 29/02)
+  const d = parse(s), day = d.getUTCDate(); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() + n);
+  const last = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+  d.setUTCDate(Math.min(day, last)); return iso(d);
+}
+export function nextDue(job) {
+  const f = FREQ[job.frequency]; if (!f || !job.last_done || job.frequency === 'once') return null;
+  return f.months ? addMonths(job.last_done, f.months) : addDays(job.last_done, f.days);
+}
+// state: 'done' (one-off ticked – hidden) | 'todo' (one-off) | 'duenow' (never done) | 'overdue' | 'soon' | 'ok'
+export function jobStatus(job, today) {
+  const f = FREQ[job.frequency] || FREQ.monthly;
+  if (job.frequency === 'once') return { job, state: job.last_done ? 'done' : 'todo', next: null, days: null };
+  if (!job.last_done) return { job, state: 'duenow', next: null, days: null };
+  const next = nextDue(job), days = daysBetween(today, next);
+  return { job, state: days < 0 ? 'overdue' : days <= f.soon ? 'soon' : 'ok', next, days };
+}
+const RANK = { overdue: 0, duenow: 1, soon: 2, todo: 3, ok: 4, done: 5 };
+const FRANK = Object.fromEntries(FREQS.map((f, i) => [f.key, i]));
+export function jobView(jobs, today) {
+  const rows = jobs.map((j) => jobStatus(j, today)).sort((a, b) => RANK[a.state] - RANK[b.state] || (a.days ?? -1e6) - (b.days ?? -1e6)
+    || FRANK[a.job.frequency] - FRANK[b.job.frequency] || (a.job.sort_order ?? 0) - (b.job.sort_order ?? 0));
+  return {
+    now: rows.filter((r) => r.state === 'overdue' || r.state === 'duenow'),
+    soon: rows.filter((r) => r.state === 'soon'),
+    oneoff: rows.filter((r) => r.state === 'todo'),
+    ok: rows.filter((r) => r.state === 'ok'),
+    doneOneoffs: rows.filter((r) => r.state === 'done'),
+  };
+}

@@ -1,5 +1,5 @@
-import { SECTIONS, SECTION_LABEL, FILTERS, fmtDate, daysBetween, inText, kitCounts, filterKit, groupKit, checkProgress, openCheck, lastCheck, dateView } from './logic.js?v=1';
-import { makeBackend, seedIfEmpty } from './data.js?v=1';
+import { SECTIONS, SECTION_LABEL, FILTERS, fmtDate, daysBetween, inText, kitCounts, filterKit, groupKit, checkProgress, openCheck, lastCheck, dateView, FREQS, FREQ, jobView, nextDue } from './logic.js?v=2';
+import { makeBackend, seedIfEmpty, isMissingTable } from './data.js?v=2';
 
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -8,7 +8,7 @@ const localToday = () => params.get('today') || new Date().toLocaleDateString('e
 const PROJECT = 'rwbiizjwvyssdyxjuqan';
 const DASH = `https://supabase.com/dashboard/project/${PROJECT}`;
 const CFG = window.CAR_CONFIG || {};
-const TABS = ['kit', 'check', 'dates', 'wash'];
+const TABS = ['kit', 'check', 'jobs', 'dates', 'wash'];
 const LS = (k, v) => { try { if (v === undefined) return JSON.parse(localStorage.getItem('car.' + k) || 'null'); localStorage.setItem('car.' + k, JSON.stringify(v)); } catch { return null; } };
 
 const be = makeBackend();
@@ -34,7 +34,7 @@ async function refresh() {
   state.db = db; state.conn = ''; saveCache(db); render();
 }
 const withTimeout = (p) => Promise.race([p, new Promise((_, ko) => setTimeout(() => ko(new Error('Timed out reaching the database')), 15000))]);
-const isMissingTables = (err) => err?.code === 'PGRST205' || err?.code === '42P01' || /could not find the table|does not exist/i.test(String(err?.message || ''));
+const isMissingTables = isMissingTable;
 const isNetErr = (err) => !navigator.onLine || /failed to fetch|networkerror|load failed|network|offline|fetch/i.test(String(err?.message || err));
 const connProblem = (err) => (!navigator.onLine ? 'offline' : /jwt|token|not authenticated|auth session/i.test(String(err?.message || err)) ? 'auth' : 'unreachable');
 const errMsg = (err) => (isNetErr(err) ? 'You’re offline or the database can’t be reached – not saved. Try again later.' : `Couldn’t save – ${err?.message || err}`);
@@ -50,14 +50,15 @@ function renderUnreachable() {
   header();
   $('#view').innerHTML = `<div class="card conn-card" role="alert"><p>${connMessage()}</p><button type="button" class="primary wide" data-retry>Retry</button></div>`;
 }
+const setupSteps = (what) => `<ol><li><button type="button" class="ghost" data-copy-sql>📋 Copy setup SQL</button> <a href="supabase/setup.sql" target="_blank" rel="noopener">(or open it)</a></li>
+    <li>Open the <a href="${DASH}/sql/new" target="_blank" rel="noopener">Supabase SQL Editor</a>, paste it and tap <b>Run</b>.</li>
+    <li>Come back here and tap <b>Retry</b> – ${what} fill in automatically.</li></ol>
+    <button type="button" class="primary wide" data-retry>Retry</button>`;
 function renderSetup() {
   header();
   $('#view').innerHTML = `<div class="card setup"><h2>One-time setup</h2>
     <p>The car tables aren’t in the database yet. This takes about a minute and only touches new <code>car_</code> tables.</p>
-    <ol><li><button type="button" class="ghost" data-copy-sql>📋 Copy setup SQL</button> <a href="supabase/setup.sql" target="_blank" rel="noopener">(or open it)</a></li>
-    <li>Open the <a href="${DASH}/sql/new" target="_blank" rel="noopener">Supabase SQL Editor</a>, paste it and tap <b>Run</b>.</li>
-    <li>Come back here and tap <b>Retry</b> – your kit list, dates and wash steps fill in automatically.</li></ol>
-    <button type="button" class="primary wide" data-retry>Retry</button></div>`;
+    ${setupSteps('your kit list, dates, wash steps and car jobs')}</div>`;
 }
 const cacheKey = () => (be.kind === 'supabase' && be.user?.id ? `car.cache.v1.${be.user.id}` : null);
 function saveCache(db) { const k = cacheKey(); if (k) try { localStorage.setItem(k, JSON.stringify({ saved_at: new Date().toISOString(), db })); } catch { /* full */ } }
@@ -222,6 +223,81 @@ async function toggleDateDone(id) {
   toast(next ? `Done ${fmtDate(next)} – ${d.title}` : 'Marked not done', async () => { await be.update('car_dates', id, { done_on: prev }); await refresh(); });
 }
 
+// ---------- Car jobs tab
+const JOB_CHIP = { overdue: ['c-over', 'Overdue'], duenow: ['c-over', 'Due now'], soon: ['c-amber', 'Due soon'], ok: ['c-done', 'OK'], todo: ['c-later', 'To do'] };
+const LINK = { check: 'Open Kit check →', wash: 'Open Wash →' };
+function jobWhen(r) {
+  if (r.state === 'duenow') return 'Never done';
+  if (r.state === 'todo') return 'One-off';
+  const d = r.days, rel = d < 0 ? `${-d} day${d === -1 ? '' : 's'} overdue` : d === 0 ? 'due today' : d === 1 ? 'due tomorrow' : `due in ${d} days`;
+  return `Next ${fmtDate(r.next)} · ${rel}`;
+}
+function jobRow(r) {
+  const j = r.job, [cls, label] = JOB_CHIP[r.state];
+  return `<div class="item job s-${r.state}" data-id="${esc(j.id)}">
+    <div class="body" role="button" tabindex="0" data-edit-job><div class="name">${esc(j.title)}</div>
+      <div class="meta"><span class="chip ${cls}">${label}</span>${j.frequency !== 'once' ? `<span>${esc(FREQ[j.frequency]?.label || '')}</span>` : ''}<span>${jobWhen(r)}</span></div>
+      ${j.last_done ? `<div class="note">Last done ${fmtDate(j.last_done)}</div>` : ''}${j.note ? `<div class="note">${esc(j.note)}</div>` : ''}
+      ${j.link_tab && LINK[j.link_tab] ? `<button type="button" class="link go" data-go="${esc(j.link_tab)}">${LINK[j.link_tab]}</button>` : ''}</div>
+    <button type="button" class="done-btn" data-job-done aria-label="Done today: ${esc(j.title)}">✓<span>Done</span></button></div>`;
+}
+function datesSummary(today) {
+  const v = dateView(rows('car_dates'), today);
+  if (!v.rows.length) return '';
+  return `<button type="button" class="card dsum" data-go="dates" aria-label="Open the Dates tab"><div class="dsum-head"><b>Key dates</b><span class="link">Dates →</span></div>
+    ${v.rows.map((r) => `<div class="dsum-row"><span class="t">${esc(r.d.title)}<small>${esc(r.d.due_label || fmtDate(r.d.due_date))}</small></span>${r.days != null ? `<span class="chip ${r.days < 0 ? 'c-over' : r.days <= 60 ? 'c-soon' : 'c-later'}">${r.days === 0 ? 'today' : r.days < 0 ? `${-r.days} days ago` : `${r.days} days`}</span>` : ''}</div>`).join('')}</button>`;
+}
+function renderJobs() {
+  const today = localToday(); let h = datesSummary(today);
+  const jobs = state.db.car_jobs;
+  if (jobs === undefined) return h + `<p class="empty">Loading…</p>`;
+  if (jobs === null) return h + `<div class="card setup"><h2>Car jobs – one quick update</h2>
+    <p>The new <code>car_jobs</code> table isn’t in the database yet. Run the setup SQL again – it only adds what’s missing and keeps everything you’ve already ticked.</p>
+    ${setupSteps('your car jobs')}</div>`;
+  const v = jobView(jobs, today);
+  const sec = (title, list, note = '') => (list.length ? `<h2 class="sec">${title} <small>${note || list.length}</small></h2><div class="list">${list.map(jobRow).join('')}</div>` : '');
+  h += sec('Needs doing', v.now);
+  h += sec('Due soon', v.soon);
+  const ace = v.oneoff.filter((r) => /Ace Autobody/i.test(r.job.note || '')), other = v.oneoff.filter((r) => !ace.includes(r));
+  h += sec('When collecting the Tesla from Ace Autobody', ace.map((r) => ({ ...r, job: { ...r.job, note: null } })), `${ace.length} one-off`);
+  h += sec('One-off jobs', other);
+  h += sec('All good', v.ok);
+  if (!jobs.length) h += `<p class="calm">No jobs yet.</p>`;
+  else if (!v.now.length && !v.soon.length && !v.oneoff.length) h += `<p class="calm">Nothing due – all good. 👍</p>`;
+  h += `<button type="button" class="ghost wide add" data-add-job>+ Add job</button>`;
+  return h;
+}
+async function jobDone(id) {
+  const j = find('car_jobs', id); if (!j) return;
+  const prev = j.last_done, today = localToday();
+  if (prev === today && j.frequency !== 'once') return toast('Already done today');
+  await save('car_jobs', id, { last_done: today });
+  const nd = nextDue({ ...j, last_done: today });
+  toast(j.frequency === 'once' ? `Done – ${j.title}` : `Done ${fmtDate(today)} – next ${fmtDate(nd)}`, async () => { await be.update('car_jobs', id, { last_done: prev }); await refresh(); });
+}
+function openJob(it) {
+  const isNew = !it; it ||= { title: '', frequency: 'monthly', last_done: null, note: '', link_tab: null };
+  const d = sheet(`${head(isNew ? 'Add job' : 'Edit job')}
+    <label class="field">Job <input id="e-title" required maxlength="200" value="${esc(it.title)}"></label>
+    <label class="field">How often <select id="e-freq">${FREQS.map((f) => `<option value="${f.key}" ${f.key === it.frequency ? 'selected' : ''}>${f.label}</option>`).join('')}</select></label>
+    <label class="field">Last done <small class="muted">leave empty if never done${it.frequency === 'once' ? ' – a one-off with a date is hidden' : ''}</small><input type="date" id="e-last" max="${localToday()}" value="${esc(it.last_done || '')}"></label>
+    <p class="muted small" id="e-next"></p>
+    <label class="field">Note <textarea id="e-note" rows="2">${esc(it.note || '')}</textarea></label>
+    ${btns(!isNew)}`, async (d) => {
+    const title = $('#e-title', d).value.trim(); if (!title) { $('#e-err', d).textContent = 'Give it a name.'; return false; }
+    const last = $('#e-last', d).value || null;
+    if (last && last > localToday()) { $('#e-err', d).textContent = 'Last done can’t be in the future.'; return false; }
+    const patch = { title, frequency: $('#e-freq', d).value, last_done: last, note: $('#e-note', d).value.trim() || null };
+    if (isNew) { patch.sort_order = Math.max(0, ...rows('car_jobs').map((x) => x.sort_order || 0)) + 10; await be.insert('car_jobs', patch); return 'Added'; }
+    await be.update('car_jobs', it.id, patch); return 'Saved';
+  });
+  const upd = () => { const f = $('#e-freq', d).value, l = $('#e-last', d).value, n = nextDue({ frequency: f, last_done: l });
+    $('#e-next', d).textContent = f === 'once' ? (l ? 'Done – this one-off will be hidden.' : 'One-off – tick Done when it’s finished.') : n ? `Next due ${fmtDate(n)}` : 'Never done – shows as Due now.'; };
+  $('#e-freq', d).onchange = upd; $('#e-last', d).oninput = upd; $('#e-last', d).onchange = upd; upd();
+  wireDelete(d, 'car_jobs', it, it.title);
+  if (isNew) $('#e-title', d).focus();
+}
+
 // ---------- Wash tab
 function renderWash() {
   const steps = rows('car_wash').slice().sort((a, b) => a.sort_order - b.sort_order), done = steps.filter((s) => s.done).length;
@@ -246,7 +322,7 @@ async function tickWash(id) {
 function render() {
   header();
   document.querySelectorAll('.tabs button').forEach((b) => b.setAttribute('aria-selected', b.dataset.tab === state.tab));
-  const fn = { kit: renderKit, check: renderCheck, dates: renderDates, wash: renderWash }[state.tab];
+  const fn = { kit: renderKit, check: renderCheck, jobs: renderJobs, dates: renderDates, wash: renderWash }[state.tab];
   $('#view').innerHTML = connBanner() + fn();
 }
 
@@ -358,7 +434,7 @@ function openWashEdit() {
 async function downloadBackup() {
   let db = state.db, note = '';
   try { db = await be.load(); } catch { note = ' (from the copy on this phone – offline)'; }
-  const data = { app: 'car', format: 1, exported_at: new Date().toISOString(), account: be.user?.email || null, ...db };
+  const data = { app: 'car', format: 2, exported_at: new Date().toISOString(), account: be.user?.email || null, ...db };
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' }));
   a.download = `car-backup-${new Date().toLocaleDateString('en-CA')}.json`; document.body.appendChild(a); a.click(); a.remove();
@@ -369,7 +445,7 @@ function openSettings() {
   const d = $('#settings');
   d.innerHTML = `<div class="sheet-head"><h2>Settings</h2><button type="button" class="x" data-close aria-label="Close">✕</button></div>
     <p class="muted">${esc(CFG.car?.name || 'Tesla Model 3')} · ${esc(CFG.car?.reg || '')}</p>
-    <h3>Backup</h3><p class="muted small">A file with your kit list, dates, checks and wash steps.</p>
+    <h3>Backup</h3><p class="muted small">A file with your kit list, dates, checks, wash steps and car jobs.</p>
     <button type="button" class="ghost wide" id="backup" ${state.db ? '' : 'disabled'}>⬇ Download backup</button>
     <h3>Account</h3><p class="muted small">${be.kind === 'mock' ? 'Local mock data (this device only).' : `Signed in as ${esc(be.user?.email || '')}`}</p>
     <button type="button" class="ghost wide" id="acct">${be.kind === 'mock' ? 'Reset mock data' : 'Sign out'}</button>
@@ -424,6 +500,12 @@ view.addEventListener('click', async (e) => {
   if (ds.addDate !== undefined) return openDate(null);
   if (e.target.closest('[data-edit-date]') && id) return openDate(find('car_dates', id));
   if (host?.classList.contains('remind')) return openDate(find('car_dates', host.dataset.id));
+  // car jobs
+  const go = e.target.closest('[data-go]')?.dataset.go;
+  if (go && TABS.includes(go)) return showTab(go);
+  if (ds.jobDone !== undefined && id) return jobDone(id);
+  if (ds.addJob !== undefined) return openJob(null);
+  if (e.target.closest('[data-edit-job]') && id) return openJob(find('car_jobs', id));
   // wash
   if (ds.wash) return tickWash(ds.wash);
   if (ds.washReset !== undefined) {
@@ -433,7 +515,8 @@ view.addEventListener('click', async (e) => {
   if (ds.washEdit !== undefined) return openWashEdit();
 });
 view.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[role=button]')) { e.preventDefault(); e.target.click(); } });
-document.querySelectorAll('.tabs button').forEach((b) => (b.onclick = () => { state.tab = b.dataset.tab; LS('tab', state.tab); $('#toast').hidden = true; if (state.db) render(); scrollTo(0, 0); }));
+function showTab(tab) { state.tab = tab; LS('tab', tab); $('#toast').hidden = true; if (state.db) render(); scrollTo(0, 0); }
+document.querySelectorAll('.tabs button').forEach((b) => (b.onclick = () => showTab(b.dataset.tab)));
 $('#account').onclick = () => openSettings();
 
 (async () => {
@@ -442,7 +525,7 @@ $('#account').onclick = () => openSettings();
     be.ready = true;
     if (!ok) return renderLogin();
     const cached = readCache();
-    if (cached?.db) { state.db = cached.db; state.seeded = true; state.conn = 'updating'; render(); }
+    if (cached?.db) { state.db = cached.db; state.conn = 'updating'; render(); }
     let rt; be.onChange(() => { clearTimeout(rt); rt = setTimeout(() => refresh().catch(console.error), 400); });
     document.addEventListener('visibilitychange', () => { if (!document.hidden && state.db) refresh().catch(console.error); });
     window.addEventListener('online', () => { if (state.conn) retry(); });

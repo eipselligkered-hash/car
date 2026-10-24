@@ -34,11 +34,13 @@ with sync_playwright() as p:
     # Supabase code path against an in-memory PostgREST stand-in: seed on first sign-in, tick, reload
     ctx3 = b.new_context(viewport={"width": 390, "height": 844}, is_mobile=True, has_touch=True, locale="en-IE", service_workers="block")
     ctx3.add_init_script(f"localStorage.setItem('car-auth', {json.dumps(json.dumps(sess))})")
-    db, log = {t: [] for t in ["car_items", "car_dates", "car_checks", "car_wash"]}, []
+    db, log = {t: [] for t in ["car_items", "car_dates", "car_checks", "car_wash", "car_jobs"]}, []
+    state = {"jobs_missing": False}
     from urllib.parse import urlparse, parse_qs
     def rest(route):
         r = route.request; u = urlparse(r.url); t = u.path.rsplit("/", 1)[-1]; q = parse_qs(u.query); log.append(f"{r.method} {t} {u.query}")
         if not r.headers.get("authorization", "").endswith(tok): return route.fulfill(status=401, body="{}")
+        if t == "car_jobs" and state["jobs_missing"]: return route.fulfill(status=404, content_type="application/json", body='{"code":"PGRST205","message":"Could not find the table \'public.car_jobs\' in the schema cache"}')
         rows = db[t]; match = lambda x: all(x.get(k[0:]) == v[0][3:] for k, v in q.items() if v[0].startswith("eq."))
         if r.method == "GET": return route.fulfill(status=200, content_type="application/json", body=json.dumps(rows))
         if r.method == "POST":
@@ -56,13 +58,20 @@ with sync_playwright() as p:
     ctx3.route("**/rest/v1/**", rest); ctx3.route("**/realtime/**", lambda r: r.abort())
     pg3 = ctx3.new_page(); e3 = []; pg3.on("pageerror", lambda e: e3.append(str(e)))
     pg3.goto(BASE + "?tab=kit&today=2026-10-24"); pg3.wait_for_selector(".stats")
-    ok("supabase path: seeded 45 items / 7 dates / 6 wash", (len(db["car_items"]), len(db["car_dates"]), len(db["car_wash"])) == (45, 7, 6))
+    ok("supabase path: seeded 45 items / 7 dates / 6 wash / 14 jobs", (len(db["car_items"]), len(db["car_dates"]), len(db["car_wash"]), len(db["car_jobs"])) == (45, 7, 6, 14))
     ok("seed used upsert ignore-duplicates", any("on_conflict=id" in l for l in log))
     pg3.locator(".item", has_text="Compact umbrella").locator("[data-tick=packed]").tap(); pg3.wait_for_timeout(500)
     um = [x for x in db["car_items"] if x["name"] == "Compact umbrella"][0]
     ok("supabase path: tick saved (have+packed)", um["have"] and um["packed"])
     pg3.reload(); pg3.wait_for_selector(".stats"); ok("supabase path: no re-seed duplicates", len(db["car_items"]) == 45)
     ok("supabase path: tick shown after reload", "1/45" in pg3.inner_text(".stats"))
+    pg3.click("[data-tab=jobs]"); pg3.wait_for_selector(".item.job")
+    pg3.locator(".item.job", has_text="Charge to 100%").locator("[data-job-done]").tap(); pg3.wait_for_timeout(500)
+    ok("supabase path: job Done saved", [x for x in db["car_jobs"] if x["title"].startswith("Charge")][0]["last_done"] == "2026-10-24")
+    # database set up with the OLD setup.sql (no car_jobs): other tabs keep working, Car jobs shows the update card
+    state["jobs_missing"] = True
+    pg3.reload(); pg3.wait_for_selector(".stats"); pg3.click("[data-tab=jobs]"); pg3.wait_for_selector(".setup"); ok("old DB: Car jobs shows update card", "one quick update" in pg3.inner_text("#view"))
+    pg3.click("[data-tab=kit]"); pg3.wait_for_selector(".stats"); ok("old DB: Kit still works", "1/45" in pg3.inner_text(".stats"))
     ok("supabase path: no page errors", not e3)
     b.close()
 sys.exit(0 if all(res) else 1)
