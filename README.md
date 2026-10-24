@@ -47,7 +47,7 @@ only creates `car_*` tables). The app shows a *One-time setup* screen with a **C
 | `config.js` | Supabase URL + anon key, car name/reg |
 | `supabase/setup.sql` | tables + RLS |
 | `manifest.webmanifest`, `sw.js`, `icons/` | add to home screen / offline |
-| `tests/` | `node --test tests/` (logic + seed spelling), `tests/smoke_ui.py` (phone UI run-through on the mock) |
+| `tests/` | `node --test tests/` (logic + seed spelling), `tests/smoke_ui.py` (phone UI run-through on the mock), `tests/live_check.py` (deployed site: sign-in, setup screen, Supabase code path against an in-memory stand-in) |
 
 ## Run / test / deploy
 ```bash
