@@ -1,0 +1,6 @@
+.env
+*.local.json
+node_modules/
+.secrets/
+*backup*.json
+screenshots/

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en-IE">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2b3a4a">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Car">
+  <title>Car – Model 3</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="styles.css?v=1">
+  <script src="config.js?v=1"></script>
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>Model 3</h1>
+      <div class="sub" id="today"></div>
+    </div>
+    <button class="ghost" id="account" aria-label="Settings"></button>
+  </header>
+  <main id="view" aria-live="polite"><p class="empty">Loading…</p></main>
+  <nav class="tabs" role="tablist">
+    <button data-tab="kit" role="tab"><span class="ico" aria-hidden="true">🧰</span>Kit</button>
+    <button data-tab="check" role="tab"><span class="ico" aria-hidden="true">✅</span>Kit check</button>
+    <button data-tab="dates" role="tab"><span class="ico" aria-hidden="true">📅</span>Dates</button>
+    <button data-tab="wash" role="tab"><span class="ico" aria-hidden="true">🫧</span>Wash</button>
+  </nav>
+  <div id="toast" class="toast" hidden></div>
+  <dialog id="edit-sheet" class="sheet tall" aria-label="Edit"></dialog>
+  <dialog id="settings" class="sheet tall" aria-label="Settings"></dialog>
+  <script type="module" src="src/app.js?v=1"></script>
+</body>
+</html>
